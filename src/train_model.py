@@ -15,6 +15,7 @@ Steps
 import pathlib
 import sys
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -31,6 +32,7 @@ from feature_engineering import add_features, ENGINEERED_COLS
 
 OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "data" / "processed"
 OUTPUT_PATH = OUTPUT_DIR / "predictions_output.csv"
+MODELS_DIR = pathlib.Path(__file__).parent.parent / "models"
 
 RANDOM_STATE = 42
 
@@ -196,6 +198,19 @@ def main():
     # ------------------------------------------------------------------
     print("\n[Step 3] Refitting ensemble on full training set ...")
     ensemble.fit(X_train_p, data["y_train"])
+
+    # ------------------------------------------------------------------
+    # Save artifacts for the API
+    # ------------------------------------------------------------------
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(ensemble, MODELS_DIR / "world_cup_ensemble.pkl")
+    print(f"\nModel saved      -> {MODELS_DIR / 'world_cup_ensemble.pkl'}")
+
+    team_names = data["train_raw"]["team_name"].reset_index(drop=True)
+    team_features_db = pd.concat([team_names, X_train_p.reset_index(drop=True)], axis=1)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    team_features_db.to_csv(OUTPUT_DIR / "team_features_db.csv", index=False)
+    print(f"Team features DB -> {OUTPUT_DIR / 'team_features_db.csv'}")
 
     train_pred = ensemble.predict(X_train_p)
     print(f"\nClassification report on full training set (sanity check):")

@@ -5,3 +5,5 @@ xgboost
 matplotlib
 seaborn
 notebook
+fastapi
+uvicorn[standard]

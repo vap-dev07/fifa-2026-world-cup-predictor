@@ -1,0 +1,5 @@
+Model loaded from   : C:\Users\vedpu\OneDrive\Documents\VSCode Projects\WCPredictor\World Cup Predictor\models\world_cup_ensemble.pkl
+Feature DB loaded   : C:\Users\vedpu\OneDrive\Documents\VSCode Projects\WCPredictor\World Cup Predictor\data\processed\team_features_db.csv  (1000 rows)
+INFO:     127.0.0.1:55176 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55176 - "POST /api/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55176 - "POST /api/predict HTTP/1.1" 400 Bad Request
