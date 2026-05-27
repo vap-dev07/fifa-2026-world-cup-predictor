@@ -7,3 +7,5 @@ data/raw/*
 mlruns/
 .method_cache/
 outputs/
+
+mlflow.db
