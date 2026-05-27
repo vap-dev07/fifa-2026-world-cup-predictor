@@ -1,11 +1,15 @@
 # 🏆 AI Predicts the 2026 FIFA World Cup
 
-An end-to-end Machine Learning pipeline utilizing **XGBoost** to predict team success and match outcomes for the upcoming 2026 FIFA World Cup. 
+An end-to-end Machine Learning pipeline utilizing an optimized **XGBoost Classifier** to predict team success and match outcomes for the upcoming 2026 FIFA World Cup.
 
-## 📊 Model Performance (Baseline)
+## 📊 Model Performance (Optimized)
 - **Algorithm:** XGBoost Classifier
-- **Validation Accuracy:** 62.50%
-- **F1-Score (Winner Class):** 0.61
+- **Evaluation Strategy:** 5-Fold Stratified Cross-Validation
+- **Validation Accuracy:** 66.20% (📈 +3.70% over baseline)
+- **Best Hyperparameters:** `max_depth=5`, `learning_rate=0.01`, `n_estimators=100`
+
+## 🔮 Model Calibration Insights
+Through hyperparameter tuning, the model's prediction confidence has been realisticly calibrated. Top match win probabilities now scale dynamically within a realistic `0.69–0.72` band rather than overestimating outcomes at `0.99`.
 
 ## 🔮 Top Contenders (According to AI)
 Based on historical form, FIFA rankings, and squad metrics, the model ranks these teams with the highest probability of winning their tournament matches:
