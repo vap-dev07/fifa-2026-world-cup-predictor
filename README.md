@@ -19,6 +19,15 @@ Based on historical form, FIFA rankings, and squad metrics, the model ranks thes
 4. 🇧🇷 Brazil
 5. 🇺🇸 USA
 
+
+## 🔍 Interactive Predictions Lookup
+
+You can query individual team metrics and see their calibrated win probabilities across different simulation contexts directly from the terminal.
+
+To run the interactive lookup:
+```bash
+python query_predictions.py
+
 ## 🛠️ Project Structure
 - `src/data_preprocessing.py`: Cleans and encodes Kaggle pipeline features.
 - `src/train_model.py`: Trains XGBoost via an 80/20 stratified split and outputs predictions.
