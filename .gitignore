@@ -4,3 +4,6 @@ venv/
 .DS_Store
 data/raw/*
 !data/raw/.gitkeep
+mlruns/
+.method_cache/
+outputs/

@@ -16,6 +16,8 @@ import pathlib
 import sys
 
 import joblib
+import mlflow
+import mlflow.sklearn
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -48,6 +50,13 @@ XGB_PARAMS = dict(
     min_child_weight=3,
     gamma=0.1,
     eval_metric="logloss",
+    random_state=RANDOM_STATE,
+    n_jobs=-1,
+)
+
+RF_PARAMS = dict(
+    n_estimators=100,
+    max_depth=5,
     random_state=RANDOM_STATE,
     n_jobs=-1,
 )
@@ -95,14 +104,7 @@ def build_ensemble() -> VotingClassifier:
       and raw engineered features
     """
     xgb_clf = xgb.XGBClassifier(**XGB_PARAMS)
-
-    rf_clf = RandomForestClassifier(
-        n_estimators=100,
-        max_depth=5,
-        random_state=RANDOM_STATE,
-        n_jobs=-1,
-    )
-
+    rf_clf = RandomForestClassifier(**RF_PARAMS)
     lr_clf = Pipeline([
         ("scaler", StandardScaler()),
         ("lr", LogisticRegression(max_iter=1000, C=0.1, random_state=RANDOM_STATE)),
@@ -179,44 +181,68 @@ def main():
     print(f"\nEngineered features added : {ENGINEERED_COLS}")
     print(f"Total features            : {X_train.shape[1]}")
 
-    # ------------------------------------------------------------------
-    # Step 1: Probe XGBoost -> drop 3 least useful features
-    # ------------------------------------------------------------------
-    print("\n[Step 1] Fitting XGBoost probe for feature importance ranking ...")
-    X_train_p, X_test_p, dropped = prune_features(X_train, X_test, data["y_train"], n=3)
-    print(f"Pruned feature count      : {X_train_p.shape[1]}")
+    with mlflow.start_run(run_name="Ensemble_Training_v1"):
 
-    # ------------------------------------------------------------------
-    # Step 2: 5-fold CV on the pruned ensemble
-    # ------------------------------------------------------------------
-    print("\n[Step 2] Running 5-fold CV on soft-voting ensemble ...")
-    ensemble = build_ensemble()
-    scores = run_cv(ensemble, X_train_p, data["y_train"])
+        # Log XGBoost parameters
+        mlflow.log_param("xgb_max_depth",      XGB_PARAMS["max_depth"])
+        mlflow.log_param("xgb_learning_rate",  XGB_PARAMS["learning_rate"])
+        mlflow.log_param("xgb_n_estimators",   XGB_PARAMS["n_estimators"])
 
-    # ------------------------------------------------------------------
-    # Step 3: Refit on all training data, predict, save
-    # ------------------------------------------------------------------
-    print("\n[Step 3] Refitting ensemble on full training set ...")
-    ensemble.fit(X_train_p, data["y_train"])
+        # Log Random Forest parameters
+        mlflow.log_param("rf_n_estimators",    RF_PARAMS["n_estimators"])
+        mlflow.log_param("rf_max_depth",       RF_PARAMS["max_depth"])
 
-    # ------------------------------------------------------------------
-    # Save artifacts for the API
-    # ------------------------------------------------------------------
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    joblib.dump(ensemble, MODELS_DIR / "world_cup_ensemble.pkl")
-    print(f"\nModel saved      -> {MODELS_DIR / 'world_cup_ensemble.pkl'}")
+        # ------------------------------------------------------------------
+        # Step 1: Probe XGBoost -> drop 3 least useful features
+        # ------------------------------------------------------------------
+        print("\n[Step 1] Fitting XGBoost probe for feature importance ranking ...")
+        X_train_p, X_test_p, dropped = prune_features(X_train, X_test, data["y_train"], n=3)
+        print(f"Pruned feature count      : {X_train_p.shape[1]}")
+        mlflow.log_param("features_dropped",   dropped)
+        mlflow.log_param("feature_count",      X_train_p.shape[1])
 
-    team_names = data["train_raw"]["team_name"].reset_index(drop=True)
-    team_features_db = pd.concat([team_names, X_train_p.reset_index(drop=True)], axis=1)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    team_features_db.to_csv(OUTPUT_DIR / "team_features_db.csv", index=False)
-    print(f"Team features DB -> {OUTPUT_DIR / 'team_features_db.csv'}")
+        # ------------------------------------------------------------------
+        # Step 2: 5-fold CV on the pruned ensemble
+        # ------------------------------------------------------------------
+        print("\n[Step 2] Running 5-fold CV on soft-voting ensemble ...")
+        ensemble = build_ensemble()
+        scores = run_cv(ensemble, X_train_p, data["y_train"])
 
-    train_pred = ensemble.predict(X_train_p)
-    print(f"\nClassification report on full training set (sanity check):")
-    print(classification_report(data["y_train"], train_pred, target_names=["Not Winner", "Winner"]))
+        mlflow.log_metric("cv_mean_accuracy", float(scores.mean()))
+        mlflow.log_metric("cv_std_accuracy",  float(scores.std()))
 
-    predict_and_save(ensemble, X_test_p, data["test_raw"])
+        # ------------------------------------------------------------------
+        # Step 3: Refit on all training data, predict, save
+        # ------------------------------------------------------------------
+        print("\n[Step 3] Refitting ensemble on full training set ...")
+        ensemble.fit(X_train_p, data["y_train"])
+
+        # Log the ensemble model as an MLflow artifact
+        mlflow.sklearn.log_model(ensemble, "model")
+        print("\n[MLflow] Ensemble model artifact logged.")
+
+        # ------------------------------------------------------------------
+        # Save artifacts for the API
+        # ------------------------------------------------------------------
+        MODELS_DIR.mkdir(parents=True, exist_ok=True)
+        joblib.dump(ensemble, MODELS_DIR / "world_cup_ensemble.pkl")
+        print(f"\nModel saved      -> {MODELS_DIR / 'world_cup_ensemble.pkl'}")
+
+        team_names = data["train_raw"]["team_name"].reset_index(drop=True)
+        team_features_db = pd.concat([team_names, X_train_p.reset_index(drop=True)], axis=1)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        team_features_db.to_csv(OUTPUT_DIR / "team_features_db.csv", index=False)
+        print(f"Team features DB -> {OUTPUT_DIR / 'team_features_db.csv'}")
+
+        train_pred = ensemble.predict(X_train_p)
+        print(f"\nClassification report on full training set (sanity check):")
+        print(classification_report(data["y_train"], train_pred, target_names=["Not Winner", "Winner"]))
+
+        predict_and_save(ensemble, X_test_p, data["test_raw"])
+
+        run_id = mlflow.active_run().info.run_id
+        print(f"\n[MLflow] Run ID  : {run_id}")
+        print(f"[MLflow] View UI : mlflow ui  (then open http://127.0.0.1:5000)")
 
     print("\nDone.")
 
