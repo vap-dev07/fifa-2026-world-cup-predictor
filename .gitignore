@@ -1,0 +1,6 @@
+venv/
+.env
+*.pyc
+.DS_Store
+data/raw/*
+!data/raw/.gitkeep
