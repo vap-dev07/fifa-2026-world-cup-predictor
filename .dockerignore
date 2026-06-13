@@ -1,0 +1,37 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ML experiment tracking
+mlruns/
+mlflow.db
+
+# Data — exclude raw/interim, only processed CSV is copied explicitly
+data/raw/
+data/interim/
+data/processed/predictions_output.csv
+
+# Notebooks and source scripts (not needed at runtime)
+notebooks/
+src/
+query_predictions.py
+
+# Git
+.git/
+.gitignore
+
+# IDE / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Docs
+README.md
